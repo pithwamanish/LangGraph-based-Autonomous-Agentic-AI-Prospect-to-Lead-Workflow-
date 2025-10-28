@@ -1,0 +1,26 @@
+{
+  "last_updated": "2025-10-19T20:02:47.247607",
+  "applied_changes": [
+    {
+      "type": "icp_criteria",
+      "changes": {
+        "company_size": "50-500 employees (was 100-1000)",
+        "industry_focus": "SaaS, Technology, E-commerce",
+        "funding_stage": "Series A to Series C",
+        "technology_stack": "Modern tech stack required"
+      },
+      "timestamp": "2025-10-19T20:02:47.247596"
+    },
+    {
+      "type": "subject_lines",
+      "changes": [
+        "Quick question about {company_name}",
+        "Partnership opportunity - {company_name}",
+        "AI solution for {company_name}",
+        "5-minute call about {company_name}?"
+      ],
+      "timestamp": "2025-10-19T20:02:47.247604"
+    }
+  ],
+  "total_changes": 2
+}

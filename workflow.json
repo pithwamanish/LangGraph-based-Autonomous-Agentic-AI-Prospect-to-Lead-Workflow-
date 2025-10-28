@@ -1,0 +1,140 @@
+{
+  "workflow_name": "OutboundLeadGeneration",
+  "description": "End-to-end AI agent workflow to find, contact, and qualify leads",
+  "version": "1.0.0",
+  "config": {
+    "scoring": {
+      "criteria": [
+        {"field": "company_size", "weight": 0.3, "min": 100, "max": 1000},
+        {"field": "revenue", "weight": 0.25, "min": 20000000, "max": 200000000},
+        {"field": "recent_funding", "weight": 0.2, "value": true},
+        {"field": "hiring_sales", "weight": 0.15, "value": true},
+        {"field": "tech_stack_match", "weight": 0.1, "value": true}
+      ]
+    },
+    "outreach": {
+      "persona": "SDR",
+      "tone": "friendly",
+      "max_emails_per_day": 50,
+      "follow_up_days": [3, 7, 14]
+    }
+  },
+  "steps": [
+    {
+      "id": "prospect_search",
+      "agent": "ProspectSearchAgent",
+      "inputs": {
+        "icp": {
+          "industry": "SaaS",
+          "location": "USA",
+          "employee_count": {"min": 100, "max": 1000},
+          "revenue": {"min": 20000000, "max": 200000000}
+        },
+        "signals": ["recent_funding", "hiring_for_sales"]
+      },
+      "instructions": "Use Clay and Apollo APIs to search for company and contact data matching ICP. Return structured leads.",
+      "tools": [
+        {
+          "name": "ClayAPI",
+          "config": {"api_key": "{{CLAY_API_KEY}}", "endpoint": "https://api.clay.com/v1/people/search"}
+        },
+        {
+          "name": "ApolloAPI",
+          "config": {"api_key": "{{APOLLO_API_KEY}}", "endpoint": "https://api.apollo.io/v1/mixed_people/search"}
+        }
+      ],
+      "output_schema": {
+        "leads": [
+          {"company": "string", "contact_name": "string", "email": "string", "linkedin": "string", "signal": "string"}
+        ]
+      },
+      "next_steps": ["enrichment"]
+    },
+    {
+      "id": "enrichment",
+      "agent": "DataEnrichmentAgent",
+      "inputs": {
+        "leads": "{{prospect_search.output.leads}}"
+      },
+      "instructions": "Enrich lead data using PeopleDataLabs API for comprehensive company and contact information.",
+      "tools": [
+        {"name": "PeopleDataLabs", "config": {"api_key": "{{PEOPLEDATALABS_API_KEY}}"}}
+      ],
+      "output_schema": {
+        "enriched_leads": [
+          {"company": "string", "contact": "string", "role": "string", "technologies": "array"}
+        ]
+      },
+      "next_steps": ["scoring"]
+    },
+    {
+      "id": "scoring",
+      "agent": "ScoringAgent",
+      "inputs": {
+        "enriched_leads": "{{enrichment.output.enriched_leads}}",
+        "scoring_criteria": "{{config.scoring}}"
+      },
+      "instructions": "Score leads based on configurable ICP scoring function.",
+      "tools": [],
+      "output_schema": {"ranked_leads": "array"},
+      "next_steps": ["outreach_content"]
+    },
+    {
+      "id": "outreach_content",
+      "agent": "OutreachContentAgent",
+      "inputs": {
+        "ranked_leads": "{{scoring.output.ranked_leads}}",
+        "persona": "{{config.outreach.persona}}",
+        "tone": "{{config.outreach.tone}}"
+      },
+      "instructions": "Generate personalized outreach messages using LLM and prospect context.",
+      "tools": [
+        {"name": "OpenAI", "config": {"api_key": "{{OPENAI_KEY}}", "model": "gpt-4o-mini"}}
+      ],
+      "output_schema": {
+        "messages": [{"lead": "string", "email_body": "string", "subject": "string"}]
+      },
+      "next_steps": ["send"]
+    },
+    {
+      "id": "send",
+      "agent": "OutreachExecutorAgent",
+      "inputs": {
+        "messages": "{{outreach_content.output.messages}}"
+      },
+      "instructions": "Send emails using Sendgrid or Apollo API and log delivery.",
+      "tools": [
+        {"name": "ApolloAPI", "config": {"api_key": "{{APOLLO_API_KEY}}"}},
+        {"name": "SendGrid", "config": {"api_key": "{{SENDGRID_API_KEY}}"}}
+      ],
+      "output_schema": {"sent_status": "array", "campaign_id": "string"},
+      "next_steps": ["response_tracking"]
+    },
+    {
+      "id": "response_tracking",
+      "agent": "ResponseTrackerAgent",
+      "inputs": {
+        "campaign_id": "{{send.output.campaign_id}}"
+      },
+      "instructions": "Monitor email responses and meeting bookings using Apollo API.",
+      "tools": [
+        {"name": "ApolloAPI", "config": {"api_key": "{{APOLLO_API_KEY}}"}}
+      ],
+      "output_schema": {"responses": "array"},
+      "next_steps": ["feedback_trainer"]
+    },
+    {
+      "id": "feedback_trainer",
+      "agent": "FeedbackTrainerAgent",
+      "inputs": {
+        "responses": "{{response_tracking.output.responses}}"
+      },
+      "instructions": "Analyze open/click/reply data, suggest new configs (subject line change, ICP tweaks) and send for approval.",
+      "tools": [
+        {"name": "GoogleSheets", "config": {"sheet_id": "{{SHEET_ID}}", "credentials": "{{GOOGLE_CREDENTIALS_FILE}}"}}
+      ],
+      "output_schema": {"recommendations": "array"},
+      "next_steps": []
+    }
+  ]
+}
